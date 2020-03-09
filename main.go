@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -17,10 +18,35 @@ func abend(msg string) {
 	os.Exit(-1)
 }
 
-func processFile(size int64, input io.Reader, output io.Writer, conf *config) error {
+// Config settings from invocation flags
+type Config struct {
+	help           bool
+	dataName       string
+	dataType       string
+	prefixFilename string
+	outputFilename string
+}
+
+var config Config
+
+func init() {
+	flag.BoolVar(&config.help, "h", false, "display help")
+	flag.StringVar(&config.dataName, "n", "data", "name of the created array")
+	flag.StringVar(&config.dataType, "t", "uint8_t", "type of the created array")
+	flag.StringVar(&config.prefixFilename, "p", "", "name of file to be insterted at start of output")
+	flag.StringVar(&config.outputFilename, "o", "", "name of output file. Output written to stdout if omitted")
+
+	flag.Usage = func() {
+		fmt.Fprintln(os.Stderr, "file2src: ")
+		fmt.Fprintln(os.Stderr, "  Usage: file2src [options] <input> ")
+		flag.PrintDefaults()
+	}
+}
+
+func processFile(size int64, input io.Reader, output io.Writer, conf *Config) error {
 
 	fmt.Fprintf(output, "const size_t %s_sz = %v;\n", conf.dataName, size)
-	fmt.Fprintf(output, "uint8_t %s[] = {\n", conf.dataName)
+	fmt.Fprintf(output, "%s %s[%s_sz] = {\n", conf.dataType, conf.dataName, conf.dataName)
 
 	byteCount := int64(0)
 
@@ -52,35 +78,27 @@ func processFile(size int64, input io.Reader, output io.Writer, conf *config) er
 	return nil
 }
 
-type config struct {
-	dataName string
-}
-
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Println("picomerge: merges pico8 p8 cart with its included source files to produce a single file p8 cart.")
-		fmt.Println("  Usage: picomerge <input.p8> [output.p8]")
-		fmt.Println("  if no output file is specified, then output is printed to console")
-		os.Exit(-1)
+	flag.Parse()
+
+	if len(flag.Args()) == 0 || config.help {
+		flag.Usage()
+		os.Exit(1)
 	}
 
-	input := os.Args[1]
+	input := flag.Args()[0]
 	outfile := os.Stdout
 
-	if len(os.Args) > 2 {
-		output := os.Args[2]
+	if config.outputFilename != "" {
 		var err error
-		outfile, err = os.Create(output)
+		outfile, err = os.Create(config.outputFilename)
 		exitOnError(err, "Cannot create output file")
 	}
-
-	conf := config{}
-	conf.dataName = "data"
 
 	infile, err := os.Open(input)
 	info, err := infile.Stat()
 	exitOnError(err, "Cant Open Inputfile")
-	exitOnError(processFile(info.Size(), infile, outfile, &conf), "Error reading file")
+	exitOnError(processFile(info.Size(), infile, outfile, &config), "Error reading file")
 
 	if outfile != os.Stdout {
 		outfile.Close()
