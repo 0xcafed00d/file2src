@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
+	"strings"
 )
 
 func exitOnError(e error, msg string) {
@@ -24,6 +26,7 @@ type Config struct {
 	dataName       string
 	dataType       string
 	prefixFilename string
+	prefixText     string
 	outputFilename string
 }
 
@@ -34,11 +37,12 @@ func init() {
 	flag.StringVar(&config.dataName, "n", "data", "name of the created array")
 	flag.StringVar(&config.dataType, "t", "uint8_t", "type of the created array")
 	flag.StringVar(&config.prefixFilename, "p", "", "name of file to be insterted at start of output")
+	flag.StringVar(&config.prefixText, "P", "", "text to be inserted at start of output")
 	flag.StringVar(&config.outputFilename, "o", "", "name of output file. Output written to stdout if omitted")
 
 	flag.Usage = func() {
-		fmt.Fprintln(os.Stderr, "file2src: ")
-		fmt.Fprintln(os.Stderr, "  Usage: file2src [options] <input> ")
+		fmt.Fprintln(os.Stderr, "file2src: encodes a file as an array of bytes in a C/C++ source file, to allow data files to be compiled in a executable")
+		fmt.Fprintln(os.Stderr, "  Usage: file2src [options] <input file name> ")
 		flag.PrintDefaults()
 	}
 }
@@ -78,6 +82,23 @@ func processFile(size int64, input io.Reader, output io.Writer, conf *Config) er
 	return nil
 }
 
+func unescapeString(str string) string {
+	out := []rune{'"'}
+
+	for _, r := range str {
+		if r == '"' {
+			out = append(out, '\\')
+		}
+		out = append(out, r)
+	}
+	out = append(out, '"')
+
+	unescapedString, err := strconv.Unquote(string(out))
+	exitOnError(err, "failed to unquote: "+string(out))
+
+	return unescapedString
+}
+
 func main() {
 	flag.Parse()
 
@@ -93,6 +114,21 @@ func main() {
 		var err error
 		outfile, err = os.Create(config.outputFilename)
 		exitOnError(err, "Cannot create output file")
+	}
+
+	if config.prefixFilename != "" {
+		prefixfile, err := os.Open(config.prefixFilename)
+		exitOnError(err, "Cant Open Prefix file")
+		defer prefixfile.Close()
+		_, err = io.Copy(outfile, prefixfile)
+		exitOnError(err, "Failed Writing Prefix file")
+	}
+
+	if config.prefixText != "" {
+		txt := unescapeString(config.prefixText)
+		prefixtext := strings.NewReader(txt)
+		_, err := io.Copy(outfile, prefixtext)
+		exitOnError(err, "Failed Writing Prefix text")
 	}
 
 	infile, err := os.Open(input)
