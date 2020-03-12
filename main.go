@@ -28,6 +28,7 @@ type Config struct {
 	prefixFilename string
 	prefixText     string
 	outputFilename string
+	nullTerminate  bool
 }
 
 var config Config
@@ -35,10 +36,11 @@ var config Config
 func init() {
 	flag.BoolVar(&config.help, "h", false, "display help")
 	flag.StringVar(&config.dataName, "n", "data", "name of the created array")
-	flag.StringVar(&config.dataType, "t", "uint8_t", "type of the created array")
+	flag.StringVar(&config.dataType, "t", "unsigned char", "type of the created array")
 	flag.StringVar(&config.prefixFilename, "p", "", "name of file to be insterted at start of output")
 	flag.StringVar(&config.prefixText, "P", "", "text to be inserted at start of output")
 	flag.StringVar(&config.outputFilename, "o", "", "name of output file. Output written to stdout if omitted")
+	flag.BoolVar(&config.nullTerminate, "z", false, "place a Zero byte at the end of the data.\nExtends length of data by 1 byte.\n(useful for null terminating string data)")
 
 	flag.Usage = func() {
 		fmt.Fprintln(os.Stderr, "file2src: encodes a file as an array of bytes in a C/C++ source file, to allow data files to be compiled in a executable")
@@ -48,6 +50,10 @@ func init() {
 }
 
 func processFile(size int64, input io.Reader, output io.Writer, conf *Config) error {
+
+	if config.nullTerminate {
+		size++
+	}
 
 	fmt.Fprintf(output, "const size_t %s_sz = %v;\n", conf.dataName, size)
 	fmt.Fprintf(output, "%s %s[%s_sz] = {\n", conf.dataType, conf.dataName, conf.dataName)
@@ -77,6 +83,10 @@ func processFile(size int64, input io.Reader, output io.Writer, conf *Config) er
 		}
 		fmt.Fprint(output, "\n")
 	}
+	if config.nullTerminate {
+		fmt.Fprintln(output, "\t0")
+	}
+
 	fmt.Fprintln(output, "};")
 
 	return nil
