@@ -28,18 +28,28 @@ type Config struct {
 	prefixFilename string
 	prefixText     string
 	outputFilename string
+	outputLanguage string
 	nullTerminate  bool
 }
 
 var config Config
 
+type processFileFunc func(size int64, input io.Reader, output io.Writer, conf *Config) error
+
+var processFuncMap map[string]processFileFunc
+
 func init() {
+	processFuncMap = make(map[string]processFileFunc)
+	processFuncMap["c"] = processFileC
+	processFuncMap["go"] = processFileGo
+
 	flag.BoolVar(&config.help, "h", false, "display help")
 	flag.StringVar(&config.dataName, "n", "data", "name of the created array")
 	flag.StringVar(&config.dataType, "t", "unsigned char", "type of the created array")
 	flag.StringVar(&config.prefixFilename, "p", "", "name of file to be insterted at start of output")
 	flag.StringVar(&config.prefixText, "P", "", "text to be inserted at start of output")
 	flag.StringVar(&config.outputFilename, "o", "", "name of output file. Output written to stdout if omitted")
+	flag.StringVar(&config.outputLanguage, "l", "c", "language of src output (suppored: c, go)")
 	flag.BoolVar(&config.nullTerminate, "z", false, "place a Zero byte at the end of the data.\nExtends length of data by 1 byte.\n(useful for null terminating string data)")
 
 	flag.Usage = func() {
@@ -49,7 +59,43 @@ func init() {
 	}
 }
 
-func processFile(size int64, input io.Reader, output io.Writer, conf *Config) error {
+func processFileGo(size int64, input io.Reader, output io.Writer, conf *Config) error {
+	//var InstructionData = []InstructionInfo{
+
+	if config.nullTerminate {
+		size++
+	}
+
+	fmt.Fprintf(output, "var %s = [%v]%s{\n", conf.dataName, size, conf.dataType)
+	for {
+		buffer := make([]byte, 16)
+		n, err := input.Read(buffer)
+		if err != nil && err != io.EOF {
+			return err
+		}
+
+		if n == 0 && err == io.EOF {
+			break
+		}
+
+		fmt.Fprint(output, "\t")
+
+		for i := 0; i < n; i++ {
+			fmt.Fprintf(output, "0x%02x, ", buffer[i])
+		}
+		fmt.Fprint(output, "\n")
+	}
+
+	if config.nullTerminate {
+		fmt.Fprintln(output, "\t0,")
+	}
+
+	fmt.Fprintln(output, "}")
+
+	return nil
+}
+
+func processFileC(size int64, input io.Reader, output io.Writer, conf *Config) error {
 
 	if config.nullTerminate {
 		size++
@@ -144,7 +190,13 @@ func main() {
 	infile, err := os.Open(input)
 	info, err := infile.Stat()
 	exitOnError(err, "Cant Open Inputfile")
-	exitOnError(processFile(info.Size(), infile, outfile, &config), "Error reading file")
+
+	procFunc := processFuncMap[config.outputLanguage]
+	if procFunc != nil {
+		exitOnError(procFunc(info.Size(), infile, outfile, &config), "Error reading file")
+	} else {
+		abend("Unsupported output language: " + config.outputLanguage)
+	}
 
 	if outfile != os.Stdout {
 		outfile.Close()
