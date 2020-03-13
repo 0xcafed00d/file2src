@@ -36,16 +36,21 @@ var config Config
 
 type processFileFunc func(size int64, input io.Reader, output io.Writer, conf *Config) error
 
-var processFuncMap map[string]processFileFunc
+type languageDetails struct {
+	procFunc    processFileFunc
+	defaultType string
+}
+
+var languageMap map[string]languageDetails
 
 func init() {
-	processFuncMap = make(map[string]processFileFunc)
-	processFuncMap["c"] = processFileC
-	processFuncMap["go"] = processFileGo
+	languageMap = make(map[string]languageDetails)
+	languageMap["c"] = languageDetails{processFileC, "unsigned char"}
+	languageMap["go"] = languageDetails{processFileGo, "byte"}
 
 	flag.BoolVar(&config.help, "h", false, "display help")
 	flag.StringVar(&config.dataName, "n", "data", "name of the created array")
-	flag.StringVar(&config.dataType, "t", "unsigned char", "type of the created array")
+	flag.StringVar(&config.dataType, "t", "", "type of the created array")
 	flag.StringVar(&config.prefixFilename, "p", "", "name of file to be insterted at start of output")
 	flag.StringVar(&config.prefixText, "P", "", "text to be inserted at start of output")
 	flag.StringVar(&config.outputFilename, "o", "", "name of output file. Output written to stdout if omitted")
@@ -191,9 +196,12 @@ func main() {
 	info, err := infile.Stat()
 	exitOnError(err, "Cant Open Inputfile")
 
-	procFunc := processFuncMap[config.outputLanguage]
-	if procFunc != nil {
-		exitOnError(procFunc(info.Size(), infile, outfile, &config), "Error reading file")
+	ld, ok := languageMap[config.outputLanguage]
+	if ok {
+		if config.dataType == "" {
+			config.dataType = ld.defaultType
+		}
+		exitOnError(ld.procFunc(info.Size(), infile, outfile, &config), "Error reading file")
 	} else {
 		abend("Unsupported output language: " + config.outputLanguage)
 	}
