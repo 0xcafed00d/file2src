@@ -4,6 +4,9 @@ Tool to encode a file as an array of bytes in a C/C++ or Go source file, to allo
 
 ```
   Usage: file2src [options] <input file name> 
+  
+  Options:
+  
   -P string
         text to be inserted at start of output
   -h    display help
