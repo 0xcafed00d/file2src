@@ -1,5 +1,6 @@
 picomerge
 # file2src 
+```
 encodes a file as an array of bytes in a C/C++ source file, to allow data files to be compiled in a executable
   Usage: file2src [options] <input file name> 
   -P string
@@ -18,4 +19,4 @@ encodes a file as an array of bytes in a C/C++ source file, to allow data files 
   -z    place a Zero byte at the end of the data.
         Extends length of data by 1 byte.
         (useful for null terminating string data)
-
+```
