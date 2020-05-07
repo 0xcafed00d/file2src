@@ -1,7 +1,9 @@
 picomerge
 # file2src 
+
+Tool to encode a file as an array of bytes in a C/C++ or Go source file, to allow data files to be compiled in a executable
+
 ```
-encodes a file as an array of bytes in a C/C++ source file, to allow data files to be compiled in a executable
   Usage: file2src [options] <input file name> 
   -P string
         text to be inserted at start of output
