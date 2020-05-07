@@ -24,3 +24,6 @@ Tool to encode a file as an array of bytes in a C/C++ or Go source file, to allo
         Extends length of data by 1 byte.
         (useful for null terminating string data)
 ```
+
+## Version History
+- 0.1.0 Initial version
