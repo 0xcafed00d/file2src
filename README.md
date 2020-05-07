@@ -1,4 +1,3 @@
-picomerge
 # file2src 
 
 Tool to encode a file as an array of bytes in a C/C++ or Go source file, to allow data files to be compiled in a executable
